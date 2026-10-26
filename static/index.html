@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShortLink Pro 控制台</title>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #162235; --panel2: #1b2b40; --line: #24374f;
+    --text: #e2e8f0; --muted: #8aa0b8; --accent: #37dcf2; --accent2: #1b6b7a;
+    --ok: #34d399; --warn: #fbbf24; --err: #f87171; --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.6 "Segoe UI", "Microsoft YaHei", sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; color: var(--accent); letter-spacing: 1px; }
+  .badge { font-size: 11px; padding: 2px 8px; border: 1px solid var(--accent2); border-radius: 99px; color: var(--accent); }
+  #userbox { margin-left: auto; color: var(--muted); display: none; align-items: center; gap: 10px; }
+  main { max-width: 980px; margin: 24px auto; padding: 0 16px; display: grid; gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .card h2 { font-size: 14px; color: var(--muted); font-weight: 600; margin-bottom: 12px; letter-spacing: .5px; }
+  input, select, button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); padding: 8px 12px; outline: none; }
+  input:focus { border-color: var(--accent2); }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  button.primary:hover { filter: brightness(1.15); }
+  button.ghost { background: transparent; color: var(--muted); }
+  button.ghost:hover { color: var(--text); }
+  button.danger { background: transparent; color: var(--err); border-color: transparent; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > input[type=url] { flex: 2 1 320px; }
+  .row > input.tiny { flex: 0 1 160px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { color: var(--muted); font-weight: 600; }
+  td a { color: var(--accent); text-decoration: none; word-break: break-all; }
+  td .target { color: var(--muted); word-break: break-all; display: block; max-width: 320px; }
+  .pill { font-size: 11px; padding: 1px 8px; border-radius: 99px; }
+  .pill.ok { color: var(--ok); border: 1px solid var(--ok); }
+  .pill.gone { color: var(--warn); border: 1px solid var(--warn); }
+  .live { color: var(--ok); font-weight: 700; }
+  #toast { position: fixed; right: 20px; bottom: 20px; display: grid; gap: 8px; z-index: 9; }
+  .toast { background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 6px; max-width: 360px; }
+  .toast.err { border-left-color: var(--err); }
+  .auth { max-width: 420px; margin: 60px auto; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tabs button { flex: 1; }
+  .tabs button.active { border-color: var(--accent); color: var(--accent); }
+  .muted { color: var(--muted); font-size: 12px; }
+  #watchbanner { display: none; margin-bottom: 10px; }
+  kbd { background: var(--panel2); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ShortLink&nbsp;Pro</h1>
+  <span class="badge" id="envBadge">...</span>
+  <div id="userbox"><span id="whoami"></span><button class="ghost" onclick="logout()">退出</button></div>
+</header>
+
+<!-- 登录 / 注册 -->
+<div class="card auth" id="authCard">
+  <div class="tabs">
+    <button id="tabLogin" class="active" onclick="switchTab('login')">登录</button>
+    <button id="tabReg" onclick="switchTab('register')">注册</button>
+  </div>
+  <div class="row" style="flex-direction: column; gap:10px">
+    <input id="username" placeholder="用户名（字母数字下划线，3-32）" autocomplete="username">
+    <input id="password" type="password" placeholder="密码（至少 8 位）" autocomplete="current-password">
+    <button class="primary" id="authBtn" onclick="submitAuth()">登录</button>
+  </div>
+  <p class="muted" style="margin-top:10px">演示账号可任意注册；接口默认限流 120 次/分钟/IP。</p>
+</div>
+
+<!-- 控制台 -->
+<main id="main" style="display:none">
+  <div class="card">
+    <h2>创建短链</h2>
+    <div class="row">
+      <input type="url" id="targetUrl" placeholder="https://example.com/very/long/url...">
+      <input class="tiny" id="alias" placeholder="自定义别名（可选）">
+      <select id="expiry">
+        <option value="">永不过期</option>
+        <option value="3600">1 小时</option>
+        <option value="86400">1 天</option>
+        <option value="604800">7 天</option>
+      </select>
+      <button class="primary" onclick="createLink()">生成短链</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content: space-between; align-items:center">
+      <h2 style="margin:0">我的短链</h2>
+      <button class="ghost" onclick="loadLinks()">刷新</button>
+    </div>
+    <div id="watchbanner" class="card" style="background:var(--panel2)">
+      <span class="live">● LIVE</span>
+      <span id="watchText" class="muted"></span>
+      <button class="ghost" onclick="stopWatch()">停止监听</button>
+    </div>
+    <table>
+      <thead><tr><th>短链</th><th>目标</th><th>点击</th><th>状态</th><th></th></tr></thead>
+      <tbody id="linkRows"></tbody>
+    </table>
+    <p class="muted" id="pageInfo"></p>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+let token = localStorage.getItem("sl_token") || null;
+let ws = null, watchedCode = null;
+
+function toast(msg, isErr) {
+  const el = document.createElement("div");
+  el.className = "toast" + (isErr ? " err" : "");
+  el.textContent = msg;
+  document.getElementById("toast").appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+async function api(path, options = {}) {
+  const headers = Object.assign({"Content-Type": "application/json"}, options.headers || {});
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const resp = await fetch(path, Object.assign({}, options, {headers}));
+  if (resp.status === 204) return null;
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw Object.assign(new Error(data.detail || resp.statusText), {status: resp.status});
+  return data;
+}
+
+function switchTab(tab) {
+  document.getElementById("tabLogin").classList.toggle("active", tab === "login");
+  document.getElementById("tabReg").classList.toggle("active", tab === "register");
+  document.getElementById("authBtn").textContent = tab === "login" ? "登录" : "注册";
+  document.getElementById("authBtn").onclick = () => submitAuth(tab);
+}
+
+async function submitAuth(mode) {
+  mode = mode || (document.getElementById("tabLogin").classList.contains("active") ? "login" : "register");
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  try {
+    if (mode === "register") await api("/api/auth/register", {method: "POST", body: JSON.stringify({username, password})});
+    const data = await api("/api/auth/login", {method: "POST", body: JSON.stringify({username, password})});
+    token = data.access_token;
+    localStorage.setItem("sl_token", token);
+    await boot();
+    toast("欢迎，" + username);
+  } catch (e) { toast(e.message + (e.status === 429 ? "（限流，稍后再试）" : ""), true); }
+}
+
+function logout() { localStorage.removeItem("sl_token"); location.reload(); }
+
+async function boot() {
+  const health = await fetch("/health").then(r => r.json());
+  document.getElementById("envBadge").textContent = health.environment + " · " + health.cache;
+  if (!token) return;
+  try {
+    const me = await api("/api/auth/me");
+    document.getElementById("authCard").style.display = "none";
+    document.getElementById("main").style.display = "grid";
+    document.getElementById("userbox").style.display = "flex";
+    document.getElementById("whoami").textContent = me.username;
+    await loadLinks();
+  } catch (e) {
+    if (e.status === 401) { token = null; localStorage.removeItem("sl_token"); }
+  }
+}
+
+async function createLink() {
+  const target_url = document.getElementById("targetUrl").value.trim();
+  const alias = document.getElementById("alias").value.trim();
+  const expires_in = document.getElementById("expiry").value;
+  const body = {target_url};
+  if (alias) body.custom_alias = alias;
+  if (expires_in) body.expires_in_seconds = parseInt(expires_in, 10);
+  try {
+    const link = await api("/api/links", {method: "POST", body: JSON.stringify(body)});
+    document.getElementById("targetUrl").value = "";
+    document.getElementById("alias").value = "";
+    toast("已生成：" + link.short_url);
+    await loadLinks();
+  } catch (e) { toast(e.message + (e.status === 429 ? "（限流）" : ""), true); }
+}
+
+async function loadLinks() {
+  const page = await api("/api/links?page=1&size=50");
+  const tbody = document.getElementById("linkRows");
+  tbody.innerHTML = "";
+  for (const link of page.items) {
+    const tr = document.createElement("tr");
+    const state = link.is_active && !isExpired(link) ? '<span class="pill ok">有效</span>' : '<span class="pill gone">过期/停用</span>';
+    tr.innerHTML = `
+      <td><a href="/${link.code}" target="_blank" rel="noopener">${link.short_url}</a>
+          <button class="ghost" data-copy="${link.short_url}">复制</button></td>
+      <td><span class="target">${escapeHtml(link.target_url)}</span></td>
+      <td class="clicks" data-code="${link.code}">${link.click_count}</td>
+      <td>${state}</td>
+      <td>
+        <button class="ghost" data-watch="${link.code}">监听</button>
+        <button class="danger" data-del="${link.code}">删除</button>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+  document.getElementById("pageInfo").textContent = `共 ${page.total} 条 · 第 ${page.page} 页`;
+  tbody.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => {
+    navigator.clipboard.writeText(b.dataset.copy); toast("已复制 " + b.dataset.copy);
+  });
+  tbody.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    try { await api("/api/links/" + b.dataset.del, {method: "DELETE"}); toast("已删除"); await loadLinks(); }
+    catch (e) { toast(e.message, true); }
+  });
+  tbody.querySelectorAll("[data-watch]").forEach(b => b.onclick = () => startWatch(b.dataset.watch));
+}
+
+function isExpired(link) { return link.expires_at && new Date(link.expires_at + "Z") < new Date(); }
+
+function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+function startWatch(code) {
+  stopWatch();
+  watchedCode = code;
+  ws = new WebSocket(`ws://${location.host}/ws/links/${code}?token=${encodeURIComponent(token)}`);
+  ws.onopen = () => {
+    document.getElementById("watchbanner").style.display = "block";
+    document.getElementById("watchText").textContent = ` 正在实时监听 /${code} 的点击…（试试打开短链）`;
+  };
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === "click") {
+      const cell = document.querySelector(`.clicks[data-code="${msg.code}"]`);
+      if (cell) cell.textContent = parseInt(cell.textContent, 10) + msg.delta;
+    }
+  };
+  ws.onclose = (ev) => {
+    document.getElementById("watchbanner").style.display = "none";
+    if (ev.code === 4403) toast("只能监听自己的短链", true);
+  };
+}
+
+function stopWatch() { if (ws) { ws.close(); ws = null; } }
+
+boot();
+</script>
+</body>
+</html>

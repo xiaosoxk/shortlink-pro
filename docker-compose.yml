@@ -1,0 +1,24 @@
+services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      SL_ENVIRONMENT: "prod"          # prod 输出 JSON 结构化日志
+      SL_SECRET_KEY: "change-me-in-prod"
+      SL_DATABASE_URL: "sqlite+aiosqlite:///./data/shortlink.db"
+      SL_REDIS_URL: "redis://redis:6379/0"
+      SL_PUBLIC_BASE_URL: "http://127.0.0.1:8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
