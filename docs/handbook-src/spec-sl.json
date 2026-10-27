@@ -1,0 +1,20 @@
+{
+  "parts": [
+    "sl-00-前言.md",
+    "sl-01-定位与架构.md",
+    "sl-02-核心模块.md",
+    "sl-03-踩坑实录.md",
+    "sl-04-速答与演示.md"
+  ],
+  "out": "ShortLink Pro项目面试讲解手册.docx",
+  "title": "ShortLink Pro 项目面试讲解手册",
+  "subtitle": "短链接全栈服务：异步架构 · 安全原语 · 压测验证",
+  "englishLabel": "PROJECT HANDBOOK",
+  "metaLines": [
+    "项目仓库：github.com/xiaosoxk/shortlink-pro",
+    "内容：热路径设计 · 安全与并发原语 · 六个真实踩坑 · 速答与演示",
+    "编制时间：2026 年 10 月"
+  ],
+  "footerLeft": "SHORTLINK PRO PROJECT HANDBOOK",
+  "footerRight": "2026.10"
+}
